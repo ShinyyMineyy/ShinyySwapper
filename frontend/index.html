@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shinyy's Swapper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="notifications.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pixelDark: '#1a1a1a',
+                        pixelGray: '#2d2d2d',
+                        pixelMint: '#98ff98',
+                        pixelMintDark: '#3eb489',
+                    },
+                    fontFamily: {
+                        heading: ['"Press Start 2P"', 'cursive'],
+                        body: ['"VT323"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            background-image:
+                linear-gradient(45deg, #222 25%, transparent 25%, transparent 75%, #222 75%, #222),
+                linear-gradient(45deg, #222 25%, transparent 25%, transparent 75%, #222 75%, #222);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            color: #98ff98;
+        }
+
+        .pixel-container {
+            background-color: #2d2d2d;
+            border: 4px solid #98ff98;
+            box-shadow: 12px 12px 0px #000;
+        }
+
+        input[type="file"] { display: none; }
+        .upload-zone {
+            border: 4px dashed #3eb489;
+            background-color: #1a1a1a;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-zone:hover {
+            border-style: solid;
+            background-color: #222;
+            box-shadow: inset 0 0 10px #3eb489;
+        }
+        .upload-zone.has-files {
+            border-style: solid;
+            border-color: #98ff98;
+            padding: 8px;
+        }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        .preview-grid::-webkit-scrollbar {
+            width: 8px;
+        }
+        .preview-grid::-webkit-scrollbar-track {
+            background: #1a1a1a;
+            border: 2px solid #3eb489;
+        }
+        .preview-grid::-webkit-scrollbar-thumb {
+            background: #98ff98;
+            border: 1px solid #3eb489;
+        }
+        .preview-item {
+            position: relative;
+            aspect-ratio: 1;
+            border: 2px solid #98ff98;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .preview-item img, .preview-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .preview-remove {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #ff0000;
+            color: white;
+            width: 20px;
+            height: 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            line-height: 1;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .preview-item:hover .preview-remove {
+            opacity: 1;
+        }
+        .upload-prompt {
+            transition: opacity 0.2s;
+        }
+        .upload-zone.has-files .upload-prompt {
+            display: none;
+        }
+
+        .pixel-btn {
+            background-color: #98ff98;
+            color: #1a1a1a;
+            border: 4px solid #fff;
+            box-shadow:
+                inset -4px -4px 0px rgba(0, 0, 0, 0.4),
+                6px 6px 0px #000;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .pixel-btn:active:not(:disabled) {
+            transform: translate(6px, 6px);
+            box-shadow:
+                inset -4px -4px 0px rgba(0, 0, 0, 0.4),
+                0px 0px 0px #000;
+        }
+        .pixel-btn:disabled {
+            background-color: #3eb489;
+            color: #2d2d2d;
+            cursor: not-allowed;
+            border-color: #2d2d2d;
+        }
+
+        .tab-btn {
+            background-color: #1a1a1a;
+            border: 4px solid #3eb489;
+            color: #98ff98;
+            padding: 12px 24px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background-color: #98ff98;
+            color: #1a1a1a;
+            border-color: #fff;
+        }
+
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        .result-img-wrapper {
+            border: 4px solid #98ff98;
+            background-color: #1a1a1a;
+            padding: 4px;
+            box-shadow: 8px 8px 0px #000;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-2 sm:p-4 md:p-6 font-body text-xl overflow-x-hidden">
+
+    <div id="notificationContainer"></div>
+
+    <main class="w-full max-w-5xl relative z-10">
+
+        <header class="text-center mb-4 sm:mb-6 md:mb-10">
+            <h1 class="text-xl sm:text-2xl md:text-3xl lg:text-5xl font-heading mb-2 sm:mb-4 text-pixelMint tracking-widest drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">
+                SHINYY'S
+                <br>
+                <span class="text-white">SWAPPER</span>
+            </h1>
+            <p class="text-base sm:text-lg md:text-2xl mt-2">> INITIALIZING FACE_REPLACEMENT.EXE_</p>
+        </header>
+
+        <!-- Tabs -->
+        <div class="flex flex-wrap justify-center gap-2 sm:gap-4 mb-4 sm:mb-8">
+            <button class="tab-btn active font-heading text-xs sm:text-sm px-3 sm:px-6" onclick="switchTab('image')">
+                > IMAGE_SWAP
+            </button>
+            <button class="tab-btn font-heading text-xs sm:text-sm px-3 sm:px-6" onclick="switchTab('video')">
+                > VIDEO_SWAP
+            </button>
+            <button class="tab-btn font-heading text-xs sm:text-sm px-3 sm:px-6" onclick="switchTab('multi')">
+                > MULTI_FACE
+            </button>
+            <button class="tab-btn font-heading text-xs sm:text-sm px-3 sm:px-6" onclick="switchTab('faces')">
+                > SAVED_FACES
+            </button>
+            <button class="tab-btn font-heading text-xs sm:text-sm px-3 sm:px-6" onclick="switchTab('tasks')">
+                > TASKS
+            </button>
+            <button class="tab-btn font-heading text-xs sm:text-sm px-3 sm:px-6" onclick="switchTab('history')">
+                > HISTORY
+            </button>
+        </div>
+
+        <!-- Model Info -->
+        <div class="pixel-container p-3 sm:p-4 mb-4 sm:mb-8 relative text-center">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="font-heading text-xs text-pixelMint">SHINYY ANALYZER + SHINYY SWAPPER</div>
+        </div>
+
+        <!-- Output Panels (shown in respective tabs) -->
+        <div id="imageOutputPanel" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+            <h2 class="font-heading text-xl mb-6 text-center text-white">OUTPUT</h2>
+            <div id="imageOutputGallery" class="grid grid-cols-1 gap-6"></div>
+        </div>
+
+        <div id="videoOutputPanel" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+            <h2 class="font-heading text-xl mb-6 text-center text-white">OUTPUT</h2>
+            <div id="videoOutputGallery" class="space-y-6"></div>
+        </div>
+
+        <div id="multiOutputPanel" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+            <h2 class="font-heading text-xl mb-6 text-center text-white">OUTPUT</h2>
+            <div id="multiOutputGallery"></div>
+        </div>
+
+        <!-- Image Swap Tab -->
+        <div id="imageTab" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+
+            <form id="imageForm" class="space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                    <div class="flex flex-col gap-2 text-center">
+                        <label class="font-heading text-sm text-white">> SOURCE_IMG</label>
+                        <div class="upload-zone p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center cursor-pointer min-h-[180px]" id="imgSourceZone" onclick="openUploadModal('imgSourceInput')">
+                            <div class="upload-prompt text-center">
+                                <span class="text-lg sm:text-xl md:text-2xl block">CLICK TO SELECT</span>
+                                <span class="text-pixelMintDark text-sm sm:text-base md:text-lg mt-2 block">or drag & drop</span>
+                            </div>
+                            <div id="imgSourcePreview" class="preview-grid w-full hidden"></div>
+                            <input type="file" id="imgSourceInput" name="source" accept="image/*" multiple required style="display:none">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 text-center">
+                        <label class="font-heading text-sm text-white">> TARGET_IMG</label>
+                        <div class="upload-zone p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center cursor-pointer min-h-[180px]" id="imgTargetZone" onclick="openUploadModal('imgTargetInput')">
+                            <div class="upload-prompt text-center">
+                                <span class="text-lg sm:text-xl md:text-2xl block">CLICK TO SELECT</span>
+                                <span class="text-pixelMintDark text-sm sm:text-base md:text-lg mt-2 block">or drag & drop</span>
+                            </div>
+                            <div id="imgTargetPreview" class="preview-grid w-full hidden"></div>
+                            <input type="file" id="imgTargetInput" name="target" accept="image/*" multiple required style="display:none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center mt-8 pt-4 flex-col items-center gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="enhanceCheckbox" class="w-5 h-5 border-2 border-pixelMint bg-pixelDark" onchange="toggleEnhanceOptions('image')">
+                        <span class="font-heading text-xs text-pixelMint">ENHANCE</span>
+                    </label>
+                    <div id="enhanceOptionsImage" class="hidden flex gap-4">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="enhance_type_image" value="faces" checked class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                FACES ONLY
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="enhance_type_image" value="full" class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                FULL PICTURE
+                            </div>
+                        </label>
+                    </div>
+                    <button type="submit" id="imgSubmitBtn" class="pixel-btn font-heading text-sm md:text-base py-4 px-8 w-full md:w-auto flex items-center justify-center gap-4">
+                        <span id="imgBtnText">> SWAP</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Video Swap Tab -->
+        <div id="videoTab" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+
+            <form id="videoForm" class="space-y-8">
+                <div class="mb-6">
+                    <label class="font-heading text-sm text-white block mb-3 text-center">> SPEED MODE</label>
+                    <div class="flex gap-2 justify-center">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="speed_mode" value="default" checked class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                DEFAULT
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="speed_mode" value="speed" class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                SPEED
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="speed_mode" value="extra_speed" class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                EXTRA SPEED
+                            </div>
+                        </label>
+                    </div>
+                    <p class="text-center text-xs text-pixelMintDark mt-2">Default: Best quality | Speed: 2-3x faster | Extra: 5-6x faster</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                    <div class="flex flex-col gap-2 text-center">
+                        <label class="font-heading text-sm text-white">> SOURCE_FACE</label>
+                        <div class="upload-zone p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center cursor-pointer min-h-[180px]" id="vidSourceZone" onclick="openUploadModal('vidSourceInput')">
+                            <div class="upload-prompt text-center">
+                                <span class="text-lg sm:text-xl md:text-2xl block">CLICK TO SELECT</span>
+                                <span class="text-pixelMintDark text-sm sm:text-base md:text-lg mt-2 block">or drag & drop</span>
+                            </div>
+                            <div id="vidSourcePreview" class="preview-grid w-full hidden"></div>
+                            <input type="file" id="vidSourceInput" name="source" accept="image/*" required style="display:none">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 text-center">
+                        <label class="font-heading text-sm text-white">> TARGET_VIDEO</label>
+                        <div class="upload-zone p-4 sm:p-6 md:p-8 flex flex-col items-center justify-center cursor-pointer min-h-[180px]" id="vidTargetZone" onclick="openUploadModal('vidTargetInput')">
+                            <div class="upload-prompt text-center">
+                                <span class="text-lg sm:text-xl md:text-2xl block">CLICK TO SELECT</span>
+                                <span class="text-pixelMintDark text-sm sm:text-base md:text-lg mt-2 block">or drag & drop</span>
+                            </div>
+                            <div id="vidTargetPreview" class="preview-grid w-full hidden"></div>
+                            <input type="file" id="vidTargetInput" name="video" accept="video/*" multiple required style="display:none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-center mt-8 pt-4 flex-col items-center gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="enhanceVideoCheckbox" class="w-5 h-5 border-2 border-pixelMint bg-pixelDark" onchange="toggleEnhanceOptions('video')">
+                        <span class="font-heading text-xs text-pixelMint">ENHANCE</span>
+                    </label>
+                    <div id="enhanceOptionsVideo" class="hidden flex gap-4">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="enhance_type_video" value="faces" checked class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                FACES ONLY
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="enhance_type_video" value="full" class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                FULL PICTURE
+                            </div>
+                        </label>
+                    </div>
+                    <button type="submit" id="vidSubmitBtn" class="pixel-btn font-heading text-sm md:text-base py-4 px-8 w-full md:w-auto flex items-center justify-center gap-4">
+                        <span id="vidBtnText">> SWAP VIDEO</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Multi-Face Swap Tab -->
+        <div id="multiTab" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+
+            <div class="text-center mb-6">
+                <p class="text-pixelMintDark text-sm mb-4">Upload image with multiple faces → Assign replacement faces → Swap all at once</p>
+                <label class="pixel-btn font-heading text-sm py-3 px-6 cursor-pointer inline-block">
+                    UPLOAD TARGET IMAGE
+                    <input type="file" id="multiTargetInput" accept="image/*" style="display:none">
+                </label>
+            </div>
+
+            <div id="multiFaceDetection" class="hidden">
+                <h3 class="font-heading text-lg text-center text-white mb-4">DETECTED FACES</h3>
+                <div id="detectedFacesGrid" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+                
+                <div class="flex flex-col items-center gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="enhanceMultiCheckbox" class="w-5 h-5 border-2 border-pixelMint bg-pixelDark" onchange="toggleEnhanceOptions('multi')">
+                        <span class="font-heading text-xs text-pixelMint">ENHANCE</span>
+                    </label>
+                    <div id="enhanceOptionsMulti" class="hidden flex gap-4">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="enhance_type_multi" value="faces" checked class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                FACES ONLY
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="enhance_type_multi" value="full" class="hidden peer">
+                            <div class="pixel-btn font-heading text-xs py-2 px-4 peer-checked:bg-white peer-checked:text-pixelDark" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">
+                                FULL PICTURE
+                            </div>
+                        </label>
+                    </div>
+                    <button id="multiSwapBtn" class="pixel-btn font-heading text-sm py-4 px-8" disabled>
+                        > SWAP ALL FACES
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="multiProgressBar" class="pixel-container p-4 mt-6 hidden">
+                <div class="font-heading text-xs text-pixelMint mb-2 text-center" id="multiProgressText">SWAPPING FACES...</div>
+                <div class="w-full bg-pixelDark border-2 border-pixelMint h-10 relative overflow-hidden mb-2">
+                    <div id="multiProgressFill" class="h-full bg-pixelMint transition-all duration-500 ease-out" style="width: 0%"></div>
+                    <div class="absolute inset-0 flex items-center justify-center font-heading text-sm text-pixelDark font-bold" id="multiProgressPercent">0%</div>
+                </div>
+                <div class="font-heading text-sm text-white text-center mb-1" id="multiProgressTimer">--:--</div>
+                <div class="font-body text-sm text-pixelMintDark text-center" id="multiProgressDetail"></div>
+            </div>
+
+            <div id="multiResult" class="hidden mt-6">
+                <h3 class="font-heading text-lg text-center text-white mb-4">RESULT</h3>
+                <div class="flex justify-center">
+                    <div class="result-img-wrapper">
+                        <img id="multiResultImg" class="max-w-full h-auto">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Saved Faces Tab -->
+        <div id="facesTab" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+
+            <div class="text-center mb-6">
+                <label class="pixel-btn font-heading text-sm py-3 px-6 cursor-pointer inline-block">
+                    + ADD_FACE
+                    <input type="file" id="addFaceInput" accept="image/*" multiple style="display:none">
+                </label>
+            </div>
+            <div id="savedFacesGrid" class="grid grid-cols-3 md:grid-cols-4 gap-4"></div>
+        </div>
+
+        <!-- Tasks Tab -->
+        <div id="tasksTab" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+
+            <div class="font-body text-lg text-pixelMint mb-4">> TASK_LOG</div>
+            <div id="tasksLog" class="bg-pixelDark border-2 border-pixelMintDark p-4 font-body text-base space-y-1 max-h-96 overflow-y-auto">
+                <div class="text-pixelMintDark">No active tasks</div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="historyTab" class="pixel-container p-4 sm:p-6 md:p-10 mb-6 sm:mb-10 relative hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+
+            <div class="flex justify-center gap-4 mb-6">
+                <button class="tab-btn active font-heading text-xs" onclick="switchHistoryTab('images')">
+                    IMAGES
+                </button>
+                <button class="tab-btn font-heading text-xs" onclick="switchHistoryTab('videos')">
+                    VIDEOS
+                </button>
+            </div>
+            <div id="historyImages" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+            <div id="historyVideos" class="grid grid-cols-2 md:grid-cols-3 gap-4 hidden"></div>
+        </div>
+
+        <!-- Progress Bar (shared) -->
+        <div id="progressBar" class="pixel-container p-4 mb-6 hidden">
+            <div class="absolute top-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mt-4"></div>
+            <div class="absolute top-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mt-4"></div>
+            <div class="absolute bottom-0 left-0 w-4 h-4 bg-pixelMint -ml-4 -mb-4"></div>
+            <div class="absolute bottom-0 right-0 w-4 h-4 bg-pixelMint -mr-4 -mb-4"></div>
+            <div class="font-heading text-xs text-pixelMint mb-2 text-center" id="progressText">PROCESSING...</div>
+            <div class="w-full bg-pixelDark border-2 border-pixelMint h-10 relative overflow-hidden mb-2">
+                <div id="progressFill" class="h-full bg-pixelMint transition-all duration-500 ease-out" style="width: 0%"></div>
+                <div class="absolute inset-0 flex items-center justify-center font-heading text-sm text-pixelDark font-bold" id="progressPercent">0%</div>
+            </div>
+            <div class="font-heading text-sm text-white text-center mb-1" id="progressTimer">--:--</div>
+            <div class="font-body text-sm text-pixelMintDark text-center" id="progressDetail"></div>
+        </div>
+
+    </main>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50" onclick="closeUploadModal()">
+        <div class="pixel-container p-6 max-w-2xl w-full max-h-[80vh] overflow-auto" onclick="event.stopPropagation()">
+            <h3 class="font-heading text-xl mb-4 text-center text-white">SELECT SOURCE</h3>
+            
+            <!-- Multiple Selection Checkbox -->
+            <div class="flex justify-center mb-4">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="uploadModalMultiple" class="w-5 h-5 border-2 border-pixelMint bg-pixelDark">
+                    <span class="font-heading text-xs text-pixelMint">SELECT MULTIPLE</span>
+                </label>
+            </div>
+            
+            <!-- Paste Button -->
+            <button id="uploadModalPasteBtn" class="pixel-btn font-heading text-sm py-3 px-6 w-full mb-4">
+                PASTE FROM CLIPBOARD
+            </button>
+            
+            <!-- Upload from PC Button -->
+            <button id="uploadModalFileBtn" class="pixel-btn font-heading text-sm py-3 px-6 w-full mb-4">
+                UPLOAD FROM PC
+            </button>
+            
+            <!-- Saved Faces Section -->
+            <div class="border-4 border-pixelMint p-4 bg-pixelDark">
+                <h4 class="font-heading text-sm text-pixelMint mb-3 text-center">SAVED FACES</h4>
+                <div id="uploadModalSavedFaces" class="grid grid-cols-4 gap-3 max-h-[300px] overflow-y-auto">
+                    <span class="text-pixelMintDark col-span-full text-center text-sm">Loading...</span>
+                </div>
+            </div>
+            
+            <button onclick="closeUploadModal()" class="pixel-btn font-heading text-sm py-2 px-6 w-full mt-4">
+                CANCEL
+            </button>
+        </div>
+    </div>
+
+    <!-- Saved Faces Picker Modal -->
+    <div id="facePickerModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50" onclick="closeFacePicker()">
+        <div class="pixel-container p-6 max-w-3xl max-h-[80vh] overflow-auto" onclick="event.stopPropagation()">
+            <h3 class="font-heading text-xl mb-4 text-center text-white">SELECT SAVED FACE</h3>
+            <div id="facePickerGrid" class="grid grid-cols-4 gap-4 mb-4"></div>
+            <button onclick="closeFacePicker()" class="pixel-btn font-heading text-sm py-2 px-6 w-full">
+                > CANCEL
+            </button>
+        </div>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+        <div class="pixel-container p-6 max-w-md" onclick="event.stopPropagation()">
+            <div class="text-center mb-4">
+                <div class="text-4xl mb-2 text-red-500">X</div>
+                <h3 class="font-heading text-lg text-white mb-2">ERROR</h3>
+            </div>
+            <div class="font-body text-base text-pixelMint mb-4 text-center" id="errorModalMessage">
+            </div>
+            <button onclick="closeErrorModal()" class="pixel-btn font-heading text-sm py-3 px-6 w-full">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="progress-timer.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+
+    <style>
+        /* Comparison Slider */
+        .comparison-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            border: 4px solid #98ff98;
+            background: #1a1a1a;
+            user-select: none;
+        }
+        .comparison-before {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        .comparison-after {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .comparison-after img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .comparison-slider {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 4px;
+            height: 100%;
+            background: #98ff98;
+            cursor: ew-resize;
+            z-index: 10;
+        }
+        .comparison-slider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            background: #98ff98;
+            border: 4px solid #fff;
+            box-shadow: 0 0 0 4px #1a1a1a;
+        }
+        .comparison-label {
+            position: absolute;
+            top: 10px;
+            padding: 4px 12px;
+            background: #1a1a1a;
+            border: 2px solid #98ff98;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            color: #98ff98;
+            z-index: 5;
+        }
+        .comparison-label.before {
+            left: 10px;
+        }
+        .comparison-label.after {
+            right: 10px;
+        }
+    </style>
