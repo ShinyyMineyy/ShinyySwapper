@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Gallery - All Outputs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pixelDark: '#1a1a1a',
+                        pixelGray: '#2d2d2d',
+                        pixelMint: '#98ff98',
+                        pixelMintDark: '#3eb489',
+                    },
+                    fontFamily: {
+                        heading: ['"Press Start 2P"', 'cursive'],
+                        body: ['"VT323"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            background-image:
+                linear-gradient(45deg, #222 25%, transparent 25%, transparent 75%, #222 75%, #222),
+                linear-gradient(45deg, #222 25%, transparent 25%, transparent 75%, #222 75%, #222);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            color: #98ff98;
+        }
+
+        .pixel-container {
+            background-color: #2d2d2d;
+            border: 4px solid #98ff98;
+            box-shadow: 12px 12px 0px #000;
+        }
+
+        .pixel-btn {
+            background-color: #98ff98;
+            color: #1a1a1a;
+            border: 4px solid #fff;
+            box-shadow:
+                inset -4px -4px 0px rgba(0, 0, 0, 0.4),
+                6px 6px 0px #000;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .pixel-btn:active {
+            transform: translate(6px, 6px);
+            box-shadow:
+                inset -4px -4px 0px rgba(0, 0, 0, 0.4),
+                0px 0px 0px #000;
+        }
+
+        .gallery-item {
+            border: 4px solid #98ff98;
+            background-color: #1a1a1a;
+            padding: 8px;
+            box-shadow: 8px 8px 0px #000;
+            transition: transform 0.2s;
+        }
+        .gallery-item:hover {
+            transform: scale(1.05);
+        }
+        .gallery-item img, .gallery-item video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .session-folder {
+            border: 3px solid #3eb489;
+            background-color: #2d2d2d;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        /* Lightbox Utils */
+        #lightbox { backdrop-filter: blur(5px); }
+        .cursor-pointer { cursor: pointer; }
+    </style>
+</head>
+<body class="min-h-screen p-6 font-body text-xl">
+
+    <header class="text-center mb-10">
+        <h1 class="text-5xl font-heading mb-4 text-pixelMint tracking-widest drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">
+            ADMIN
+            <br>
+            <span class="text-white">GALLERY</span>
+        </h1>
+        <p class="text-2xl mt-2">> ALL_OUTPUTS.EXE_</p>
+    </header>
+
+    <div class="max-w-7xl mx-auto">
+        <div class="pixel-container p-6 mb-8 text-center">
+            <button onclick="loadGallery()" class="pixel-btn font-heading text-sm py-3 px-8 mr-2">
+                > REFRESH GALLERY
+            </button>
+            <button onclick="cleanupOld()" class="pixel-btn font-heading text-sm py-3 px-8" style="background-color: #ff6b6b;">
+                > CLEANUP OLD (24h+)
+            </button>
+            <p class="text-pixelMintDark text-sm mt-4">Last updated: <span id="lastUpdate" class="blink">--:--:--</span></p>
+        </div>
+
+        <div id="galleryContainer" class="space-y-8">
+            <div class="text-center text-pixelMintDark text-lg">
+                Click "REFRESH GALLERY" to load outputs
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="fixed inset-0 bg-black/90 hidden z-50 flex items-center justify-center p-4" onclick="closeLightbox()">
+        <div class="relative max-w-5xl max-h-full">
+            <img id="lightboxImg" src="" class="max-h-[90vh] max-w-full border-4 border-pixelMint shadow-[0_0_20px_rgba(152,255,152,0.5)] hidden">
+            <video id="lightboxVideo" controls class="max-h-[90vh] max-w-full border-4 border-pixelMint shadow-[0_0_20px_rgba(152,255,152,0.5)] hidden"></video>
+            <p class="text-center text-pixelMint mt-2 font-heading text-sm cursor-pointer hover:text-white">[CLICK OUTSIDE TO CLOSE]</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost'; // Change this if hosted remotely
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        // Lightbox Logic
+        function openLightbox(url, isVideo) {
+            const lightbox = document.getElementById('lightbox');
+            const img = document.getElementById('lightboxImg');
+            const vid = document.getElementById('lightboxVideo');
+            
+            lightbox.classList.remove('hidden');
+            
+            if (isVideo) {
+                img.classList.add('hidden');
+                vid.classList.remove('hidden');
+                vid.src = url;
+            } else {
+                vid.classList.add('hidden');
+                img.classList.remove('hidden');
+                img.src = url;
+            }
+        }
+
+        function closeLightbox() {
+            const lightbox = document.getElementById('lightbox');
+            const vid = document.getElementById('lightboxVideo');
+            lightbox.classList.add('hidden');
+            vid.pause();
+            vid.src = '';
+        }
+
+        async function cleanupOld() {
+            if (!confirm('Delete all outputs older than 24 hours?')) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/cleanup`, { method: 'POST' });
+                const data = await response.json();
+                alert(`Cleaned: ${data.deleted} sessions`);
+                loadGallery();
+            } catch (error) {
+                alert('Cleanup failed: ' + error.message);
+            }
+        }
+
+        async function loadGallery(silent = false) {
+            const container = document.getElementById('galleryContainer');
+            const btn = document.querySelector('button');
+
+            if (!silent) {
+                container.innerHTML = '<div class="text-center text-pixelMint text-lg blink">LOADING...</div>';
+            } else {
+                btn.innerText = '> REFRESHING...';
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/admin/outputs`);
+                const data = await response.json();
+                displayGallery(data.sessions, `${API_BASE_URL}/output/`);
+            } catch (error) {
+                if (!silent) container.innerHTML = `<div class="text-center text-red-500 text-lg">ERROR: Make sure Flask is running (RUN.bat)</div>`;
+            } finally {
+                btn.innerText = '> REFRESH GALLERY';
+            }
+        }
+
+        function displayGallery(sessions, baseUrl) {
+            const container = document.getElementById('galleryContainer');
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<div class="text-center text-pixelMintDark text-lg">No outputs found</div>';
+                return;
+            }
+
+            let html = '';
+            sessions.forEach(session => {
+                html += `
+                    <div class="session-folder">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="font-heading text-lg text-white">SESSION: ${session.id}</h2>
+                            <span class="text-pixelMintDark text-sm">${formatDate(session.timestamp)}</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                `;
+
+                session.files.forEach(file => {
+                    const isVideo = file.endsWith('.mp4') || file.endsWith('.avi') || file.endsWith('.mov');
+                    const fileUrl = baseUrl + session.id + '/' + file;
+                    if (isVideo) {
+                        html += `
+                            <div class="gallery-item cursor-pointer" onclick="openLightbox('${fileUrl}', true)">
+                                <video controls>
+                                    <source src="${fileUrl}" type="video/mp4">
+                                </video>
+                                <p class="text-xs text-pixelMintDark mt-2 break-all">🎥 ${file}</p>
+                                <a href="${fileUrl}" download class="pixel-btn font-heading text-xs py-1 px-2 mt-2 inline-block" onclick="event.stopPropagation()" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">⬇ DOWNLOAD</a>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="gallery-item cursor-pointer" onclick="openLightbox('${fileUrl}', false)">
+                                <img src="${fileUrl}" alt="${file}" loading="lazy">
+                                <p class="text-xs text-pixelMintDark mt-2 break-all">${file}</p>
+                                <a href="${fileUrl}" download class="pixel-btn font-heading text-xs py-1 px-2 mt-2 inline-block" onclick="event.stopPropagation()" style="box-shadow: inset -2px -2px 0px rgba(0, 0, 0, 0.4), 3px 3px 0px #000;">⬇ DOWNLOAD</a>
+                            </div>
+                        `;
+                    }
+                });
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => loadGallery(true), 30000);
+    </script>
+</body>
+</html>

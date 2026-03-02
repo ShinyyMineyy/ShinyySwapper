@@ -1,0 +1,25 @@
+{
+  "model": {
+    "name": "inswapper_128.onnx",
+    "detection_size": [640, 640],
+    "face_analysis_model": "buffalo_l"
+  },
+  "processing": {
+    "default_face_index": 1,
+    "video_fps": 30,
+    "max_image_size": 2048,
+    "enable_gpu": true,
+    "gpu_id": 0
+  },
+  "ui": {
+    "server_name": "127.0.0.1",
+    "server_port": 7861,
+    "share": false,
+    "theme": "dark"
+  },
+  "output": {
+    "quality": 95,
+    "format": "jpg",
+    "keep_temp_files": false
+  }
+}
